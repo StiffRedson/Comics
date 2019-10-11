@@ -8,20 +8,23 @@ GROUP_ID = 186864937
 
 
 def download_comic():
-    comic_number = randint(0, 2010)
+    info_comics = requests.get("https://xkcd.com/info.0.json").json()
+    comics_all = info_comics["num"]
+    comic_number = randint(0, comics_all)
     filename = "comics_python.png"
     url = f"https://xkcd.com/{comic_number}/info.0.json"
     response = requests.get(url)
     response.raise_for_status()
 
-    description_comic = response.json()['alt']
-    url_image = response.json()['img']
+    description_comic = response.json()
+    message_comic = description_comic['alt']
+    url_image = description_comic['img']
     answer = requests.get(url_image)
 
     with open(filename, "wb") as file:
         file.write(answer.content)
 
-    return description_comic
+    return message_comic
 
 
 def get_server_address(vk_authorization):
@@ -33,8 +36,12 @@ def get_server_address(vk_authorization):
     }
 
     response = requests.get(url, params=params)
+    server_responds = response.json()
+
+    catch_a_bag(server_responds.items())
     response.raise_for_status()
-    upload_url = response.json()["response"]['upload_url']
+
+    upload_url = server_responds["response"]['upload_url']
     return upload_url
 
 
@@ -44,10 +51,14 @@ def upload_photo_to_server(upload_url):
             'file1': file,
         }
         response = requests.post(upload_url, files=files)
+
+        server_responds = response.json()
+        catch_a_bag(server_responds.items())
         response.raise_for_status()
-        image_form_data = response.json()["photo"]
-        server_id = response.json()["server"]
-        hash_id = response.json()["hash"]
+
+        image_form_data = server_responds["photo"]
+        server_id = server_responds["server"]
+        hash_id = server_responds["hash"]
     return image_form_data, server_id, hash_id
 
 
@@ -63,8 +74,11 @@ def save_photo_to_album(vk_authorization, image, server, hash):
     }
 
     response = requests.post(url, params=params)
+    server_respond = response.json()
+    catch_a_bag(server_respond.items())
     response.raise_for_status()
-    received_from_server = response.json()["response"]
+
+    received_from_server = server_respond["response"]
     for data_picture in received_from_server:
         owner = data_picture["owner_id"]
         media = data_picture["id"]
@@ -84,6 +98,15 @@ def post_photo_on_wall(vk_authorization, owner_id, media_id, description_comic):
 
     response = requests.post(url, params=params)
     response.raise_for_status()
+
+
+def catch_a_bag(error):
+    for key, value in error:
+        if key == "error":
+            error_message = value["error_msg"]
+            raise requests.exceptions.HTTPError(error_message)
+        else:
+            pass
 
 
 def main():
